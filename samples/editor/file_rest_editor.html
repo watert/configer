@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>
+	</title>
+	<script src="libs/jquery-1.7.1.min.js"></script>
+	<script src="libs/underscore+backbone.js"></script>
+	<link rel="stylesheet" href="libs/bootstrap2/css/bootstrap.min.css">
+	<script src="libs/bootstrap2/js/bootstrap.min.js"></script>
+	<link rel="stylesheet/less" href="bootstrap.mod.less">
+	<script src="bootstrap.quickform.js"></script>
+	<script src="jQuery.lightDataBind.js"></script>
+
+	<style type="text/less">
+		#file-list ul {
+			margin:0;
+			a {
+				display:block;padding:4px 2px;margin:0 -2px;
+				&:hover { background:#F7F7F7; }
+			}
+			i { cursor: pointer; }
+		}
+		#editor {
+			textarea {font-family:consolas;}
+		}
+	</style>
+	<script src="libs/less-1.2.2.min.js"></script>
+</head>
+<body>
+	<div class="container-fluid">
+		<h1 class="page-header">
+			Configer 
+			<small>Config Editor</small>
+		</h1>
+		<!-- 
+		<ul class="breadcrumb">
+			<li><a href="">Hey</a> <span class="divider">/</span></li>
+			<li class="active">1 </li>
+		</ul> -->
+		<div class="row-fluid">
+			<div class="span3">
+				<div id="file-list" class="mod mod-warning">
+					<div class="mod-header">
+						<span class="pull-right">
+							<button class="btn"> <i class="icon-plus"></i> Add</button>
+						</span>
+						<strong>Files</strong>
+						<!-- <h4>Hello World</h4> -->
+					</div>
+					<div class="mod-body">
+						<ul class="unstyled">
+						</ul>
+					</div>
+					<div class="mod-footer"> <button class="btn">Hey</button> </div>
+				</div>
+				<script>
+					(function(){
+						window.App = {};
+						var ItemView = Backbone.View.extend({
+							tagName:"li",
+							className:"file-item",
+							html:'<span class="pull-right muted">'
+									+'<i class="icon-trash"></i> '
+									+'<i class="icon-remove"></i>'
+								+'</span>'
+								+'<a href="#" data-text="file"></a>',
+								// +'<a href="" data-text="file"></a>',
+							initialize:function(data){
+								this.$el.html(this.html);
+								this.model = new FileModel(data);
+								this.$el.ldatabind(data);
+							},
+							events:{
+								"click a":function(e){
+									e.preventDefault();
+									this.trigger("selectFile",this.model);
+									console.log(this,e);
+								}
+							}
+						});
+						var FileModel = Backbone.Model.extend({
+							initialize:function(f){
+								if(_.isObject(f)){
+									this.set(f);
+									this.url = "file_rest.php?f="+f.file;
+								}else if(_.isString(f)){
+									this.url = "file_rest.php?f="+f;
+								}
+							}
+						});
+						var HandleModel = Backbone.Model.extend({
+							url:"file_rest.php?f=filelist.json",
+							defaults:{
+								id:"filelist",
+								data:[{
+									"file":"config1.json"
+								}]
+							}
+						});
+
+
+						var listDom = $("#file-list ul");
+						var handle = new HandleModel();
+						handle.fetch({
+							success:function(){
+								var data = handle.get("data");
+								console.log(data);
+								_.each(data,function(row){
+									var v = new ItemView(row);
+									v.bind("selectFile",App.setFile);
+									console.log(row,v);
+									listDom.append(v.el);
+								});
+								console.log("success");
+							},
+							error:function(){ 
+								handle.save(); //Save Defualt Config
+							}
+						});
+
+					})();
+				</script>
+			</div>
+
+
+
+
+
+			<!-- Content Part -->
+			<div class="span9">
+				<form action="" class="form" id="editor">
+					<p class="actions form-inline">
+						<label for="">File</label>
+						<span class="">
+						</span>
+						<input type="text" class="input-xxlarge" placeholder="Config Name">
+						<button class="btn btn-primary">Save</button>
+					</p>
+					<hr>
+					<textarea class="input-block-level" name="" id="" cols="30" rows="10"></textarea>
+					<script>
+						(function(){
+							var dom = $("#editor");
+							var textarea = dom.find("textarea:eq(0)");
+							console.log(textarea);
+							var setModel2Dom = function(model){
+								var json = model.toJSON();
+								var code = JSON.stringify(json,null,"\t");
+								textarea.html(code);
+							};
+							App.setFile = function(model){
+								model.fetch({
+									success:function(){
+										setModel2Dom(model);
+									},
+									error:function(){
+										model.set({case:"New File Created"});
+										model.save({success:function(){
+											setModel2Dom(model);
+										}});
+									}
+								});
+
+							};
+						})();
+					</script>
+				</form>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
