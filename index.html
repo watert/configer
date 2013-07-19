@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>
+	</title>
+	<!-- <base href=""> -->
+	<script src="libs/jquery-1.7.1.min.js"></script>
+	<script src="libs/jQuery.lightDataBind.js"></script>
+	<script src="libs/underscore+backbone.js"></script>
+	<link rel="stylesheet" href="libs/bootstrap2/css/bootstrap.min.css">
+	<!-- <link rel="stylesheet" href="libs/bootstrap2/css/bootstrap-responsive.min.css"> -->
+	<script src="libs/bootstrap2/js/bootstrap.min.js"></script>
+	
+	<style type="text/less">
+		body {background:#EEE;}
+		p {margin:4px 0;font-size:14px;}
+		.mob-view {
+			background:#FFF;
+			border:1px solid #CCC;
+			border-radius:8px;
+			padding-bottom:10px;
+
+			.mob-header {
+				border-radius:6px 6px 0 0;
+				padding:8px 5px 5px;
+				background:#555;color:#EEE;
+				border-bottom:1px solid #444;
+				h3,h4 {margin:0;line-height:1em;padding:3px 0 2px;}
+				.btn {
+					margin-top:-3px;
+					padding:2px 8px
+				}	
+			}
+		}
+
+		.config-list {
+			ul {margin:0;}
+			li {
+				border-bottom:1px solid #CCC;
+				margin-bottom:-1px;
+				padding:10px;
+
+				&:first-child { border-radius:6px 6px 0 0; }
+				&:last-child { border-width:0; }
+			}
+		}
+	</style>
+	<script src="libs/less-1.2.2.min.js"></script>
+	<script>
+		
+	</script>
+</head>
+<body class="container">
+	<br>
+	<div class="row">
+		<div class="span4">
+			<div class="mob-view">
+				<div class="config-list">
+					<ul class="unstyled">
+						<li class="mob-header clearfix text-center">
+							<button class="btn btn-inverse pull-left">Add</button>
+							<button class="btn btn-inverse pull-right">Config</button>
+							<h4>Hello</h4>
+						</li>
+						<li class="item"> 
+							<p>Hello</p> 
+							<p>Hello</p> 
+							<p>Hello</p> 
+						</li>
+						<li class="item"> 
+							<p>Hello</p> 
+							<p>Hello</p> 
+							<p>Hello</p> 
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<div class="span8">
+			<div class="mob-view editor">
+				<div class="mob-header">
+					<button class="btn btn-save btn-primary pull-right">Save</button>
+					<h4>Editor</h4>
+				</div>
+				<pre class="json-editor" style="height:300px;"></pre>
+			</div>
+
+			<script src="libs/ace-builds/src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+			<script>
+				var EditorView = Backbone.View.extend({
+					events:{
+						"click .btn-save":"save"
+					},
+					save:function(){
+						var json = $.parseJSON(this.editor.getValue());
+						this.model.save(json);
+						this.trigger("save",this.model);
+					},
+					render:function(){
+						var json = this.model.toJSON();
+						var jsonString = JSON.stringify(json,null,"\t");
+						// console.log("render",jsonString);
+						this.editor.setValue(jsonString);
+					},
+					setModel:function(model){
+						this.model = model;
+						this.model.on("change",this.render,this);
+					},
+					initialize:function(options){
+						var dom = this.$(".json-editor");
+						// console.log(dom);
+					    this.editor = ace.edit(dom[0]);
+					    // editor.setTheme("ace/theme/twilight");
+					    this.editor.getSession().setMode("ace/mode/json");
+					}
+				});
+				var EditorModel = Backbone.Model.extend({
+					initialize:function(json){
+						this.clear();
+						this.set(this.defaults);
+						this.url = json.url;
+					}
+				});
+				var ConfigModel = EditorModel.extend({
+					defaults:{
+						jsonList:[]
+					}
+				});
+				var ListItem = Backbone.View.extend({
+					tmpl:_.template('<p class=""><a href="javascript:void(0)" > <%=name%></a></p>'),
+					select:function(e){
+						e.preventDefault();
+						this.trigger("select",this.model);
+						this.$el.siblings().removeClass("active");
+						this.$el.addClass("active");
+						return false;
+					},
+					events:{
+						"click a":"select"
+					},
+					initialize:function(options){
+						this.model = options.model;
+						var data = this.model.toJSON();
+						var html = this.tmpl(data);
+						this.$el.html(html);
+					}
+				});
+				var ListView = Backbone.View.extend({
+					addItem:function(model){
+						var that = this;
+						var ul = this.$("ul:eq(0)");
+						var dom = $("<li>",{"class":"item"})
+							.appendTo(ul);
+						var view = new ListItem({
+							el:dom[0],
+							model:model
+						});
+						view.on("select",function(model){ //冒了个泡
+							that.trigger("select",model);
+						});
+					},
+					render:function(){
+						var that = this;
+						that.clear();
+						this.collection.each(function(model){
+							that.addItem(model);
+						});
+					},
+					clear:function(){
+						this.$(".item").remove();
+					},
+					initialize:function(options){
+						var that = this;
+						this.collection = options.collection;
+						this.listenTo(this.collection,"sync",function(){
+							that.render();
+						});
+					}
+				});
+				var JSONList = Backbone.Collection.extend({
+					parse:function(data){
+						_.extend(this,_.omit(data,"jsonList"));
+						return data.jsonList;
+					},
+					url:"data/item/config.json"
+				});
+				var list = new JSONList();
+
+				var configModel = new ConfigModel({url:"data/item/config.json"});
+				var listView = new ListView({
+					el:$(".config-list")[0],
+					collection:list,
+					configModel: configModel
+				});
+
+				list.fetch();
+
+				var model = new ConfigModel({url:"data/item/config.json"})
+				var editor = new EditorView({
+					el:$(".editor")[0]
+				});
+				listView.on("select",function(model){
+					var m = new EditorModel(model.toJSON());
+					editor.setModel(m);
+					m.fetch({error:function(){
+						m.save({name:"default"});
+					}});
+				});
+				// editor.setModel(model);
+				editor.on("save",function(){
+					list.fetch();
+				});
+				model.on("all",function(){
+					// console.log(arguments);
+				});
+				model.fetch();
+			</script>
+		</div>
+	</div>
+</body>
+</html>
